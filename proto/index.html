@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#27ad60">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Saha Patronu – Prototip</title>
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:,">
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div id="hud">
+  <div id="top">
+    <div class="pill" id="money"><i class="ico coin"></i><span class="out">0₺</span></div>
+    <div class="pill small" id="gems"><i class="ico gem"></i><span class="out">0</span></div>
+    <div id="clock">06:00</div>
+  </div>
+  <div id="goal"></div>
+  <div id="bottom">
+    <button class="rbtn" id="bMgr" style="--c:#3d9bff;--d:#1f6fc4" aria-label="Yöneticiler">
+      <svg viewBox="0 0 34 34"><circle cx="17" cy="11" r="7" fill="#ffe0bd" stroke="#2b3a42" stroke-width="2.4"/><path d="M5 32c0-8 5-12 12-12s12 4 12 12z" fill="#2b3a42"/><path d="M14 20l3 9 3-9z" fill="#ff5e5e" stroke="#fff" stroke-width="1.2"/></svg>
+      <span class="lbl">Yöneticiler</span><span class="dot">!</span></button>
+    <button class="rbtn" id="bShop" style="--c:#ff9f1c;--d:#c96f00" aria-label="Mağaza">
+      <svg viewBox="0 0 34 34"><path d="M5 13h24l-2 17H7z" fill="#fff" stroke="#2b3a42" stroke-width="2.4" stroke-linejoin="round"/><path d="M11 13V9a6 6 0 0 1 12 0v4" fill="none" stroke="#2b3a42" stroke-width="2.6"/><path d="M13 20l4 5 4-5-4-2z" fill="#b23cff"/></svg>
+      <span class="lbl">Mağaza</span><span class="dot">!</span></button>
+    <button class="rbtn" id="bSet" style="--c:#90a4ae;--d:#607d8b" aria-label="Ayarlar">
+      <svg viewBox="0 0 34 34"><path d="M17 4l3 3 4-1 1 4 4 2-1 4 2 3-3 2v4l-4 1-2 4-4-2-4 2-2-4-4-1v-4l-3-2 2-3-1-4 4-2 1-4 4 1z" fill="#fff" stroke="#2b3a42" stroke-width="2.2" stroke-linejoin="round"/><circle cx="17" cy="17" r="5" fill="#90a4ae" stroke="#2b3a42" stroke-width="2.2"/></svg>
+      <span class="lbl">Ayarlar</span></button>
+  </div>
+</div>
+<div id="card" class="sheet hidden"></div>
+<div id="modal" class="hidden"></div>
+<div id="hint" class="hidden"><div class="hand">👆</div><div class="htxt"></div></div>
+<div id="toast"></div>
+<canvas id="fx"></canvas>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
