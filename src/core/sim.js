@@ -1,7 +1,7 @@
 import { config as C } from '../data/config.js';
 import { clamp, finite, safeMoney, resetMissions } from './state.js';
 import { random, randomInt } from './rng.js';
-import { bookingChance, matchIncome, salaryPerHour, incomePerHour, effectMods, isOpen } from './selectors.js';
+import { bookingChance, matchIncome, salaryPerHour, incomePerHour, effectMods, isOpen, economicBase } from './selectors.js';
 import { resolveEvent } from './actions.js';
 
 export function addIncome(s, amount, events = []) {
@@ -66,7 +66,9 @@ function hourStep(s, hour, events) {
     for (const p of v.pitches) {
       if (p.match || p.blockedUntilHour > hour || !isOpen(s,v.id,p.id,hour)) continue;
       const subscription = hour % C.time.hoursPerDay === C.hours.subscription && p === v.pitches[0] && effectMods(s,v.id).subscription > 0;
-      if (!subscription && random(s) >= bookingChance(s,v.id,p.id,hour)) continue;
+      const firstBooking = s.stats.matches === 0 && v === s.venues[0] && p === v.pitches[0];
+      const roll = subscription ? 0 : random(s);
+      if (!firstBooking && !subscription && roll >= bookingChance(s,v.id,p.id,hour)) continue;
       const types = ['neighborhood'];
       if (v.facilities.parking && p.upgrades.lockers) types.push('company');
       if (hour % C.time.hoursPerDay < C.hours.morningEnd) types.push('veteran');
@@ -82,7 +84,7 @@ function hourStep(s, hour, events) {
     const v = s.venues[randomInt(s,0,s.venues.length-1)];
     const eligible = C.eventDefinitions.filter(e => e.id !== 'celebrity' || v.facilities.social > 0);
     const event = eligible[randomInt(s,0,eligible.length-1)];
-    s.pendingEvent = { id: event.id, venueId: v.id, expiresAtHour: hour + C.events.expiry, data: { defaultChoice: 1 } };
+    s.pendingEvent = { id: event.id, venueId: v.id, expiresAtHour: hour + C.events.expiry, data: { defaultChoice: 1, economicBase: economicBase(s,v.id) } };
     if (event.passive?.rain) { s.weather = { kind: 'rain', untilHour: hour + event.passive.hours }; events.push({ type: 'weather', payload: s.weather }); }
     else if (event.passive) s.activeEffects.push({ id: `${event.id}-passive`, venueId: v.id, untilHour: hour + event.passive.hours, mods: Object.fromEntries(Object.entries(event.passive).filter(([key]) => key !== 'hours')) });
     s.nextEventHour = hour + randomInt(s,C.events.gapMin,C.events.gapMax);

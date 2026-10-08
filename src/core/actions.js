@@ -77,7 +77,7 @@ export function hireOrUpgradeStaff(s,vid,key) {
 export function resolveEvent(s,index,automatic = false) {
   const pending = s.pendingEvent, event = C.eventDefinitions.find(e => e.id === pending?.id);
   if (!event || !Number.isInteger(index) || !event.choices[index]) return fail('invalid');
-  const v = S.getVenue(s,pending.venueId), c = event.choices[index];
+  const v = S.getVenue(s,pending.venueId), c = S.eventChoice(s,event.choices[index]);
   if (!v) return fail('missing');
   if (c.requiresSocial && !v.facilities.social) return fail('locked');
   const inspectionCost = c.inspectionRepair ? v.pitches.reduce((sum,p) => sum + (p.condition < C.initial.condition ? S.repairCost(s,v.id,p.id) : 0),0) : 0;
@@ -112,9 +112,10 @@ export function startTournament(s,vid,pid,id) {
   if (!t) return fail('invalid');
   if (s.level < t.unlock || !p.upgrades.stands) return fail('locked');
   if (p.match || p.blockedUntilHour > s.time.gameHours) return fail('busy');
-  if (s.money < t.cost) return fail('funds');
-  pay(s,t.cost);
-  p.match = { kind: 'tournament', startHour: s.time.gameHours, endHour: s.time.gameHours+t.hours, customerType: 'company', colors: C.customerColors.company, revenue: t.reward*(1+p.upgrades.stands*t.standsMultiplier)*(1+s.brandPoints*C.economy.brandIncome), gems: t.gems, stars: t.stars };
+  const terms = S.tournamentView(s,vid,pid,id);
+  if (s.money < terms.cost) return fail('funds');
+  pay(s,terms.cost);
+  p.match = { kind: 'tournament', startHour: s.time.gameHours, endHour: s.time.gameHours+t.hours, customerType: 'company', colors: C.customerColors.company, revenue: terms.reward, gems: t.gems, stars: t.stars };
   return success();
 }
 export function buyVenue(s,id) {

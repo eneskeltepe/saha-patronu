@@ -1,7 +1,7 @@
-const VERSION = 'v1';
+const VERSION = 'v2';
 const CACHE = 'saha-patronu-' + VERSION;
 const SHELL = ['./', './index.html', './styles.css', './manifest.webmanifest', './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png',
-  './src/main.js', './src/storage.js', './src/monetize.js', './src/ui/format.js', './src/ui/audio.js', './src/ui/canvas.js', './src/ui/icons.js',
+  './src/main.js', './src/storage.js', './src/monetize.js', './src/ui/format.js', './src/ui/audio.js', './src/ui/canvas.js', './src/ui/icons.js', './src/ui/fx.js', './src/ui/tutorial.js', './src/ui/texts.js',
   './src/ui/hud.js', './src/ui/panels.js', './src/ui/modals.js', './src/data/config.js',
   './src/core/index.js', './src/core/state.js', './src/core/sim.js', './src/core/actions.js', './src/core/selectors.js', './src/core/rng.js'];
 

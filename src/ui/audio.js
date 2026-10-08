@@ -2,7 +2,7 @@
 // Ayarlar (state.settings): sound (efekt), music, volume 0..1, musicVol 0..1, sfxVol 0..1
 let ac = null, master, musicBus, musicLP, sfxBus, noiseBuf;
 let getSettings = () => ({});
-let night = false, hidden = false, started = false, timer = null;
+let night = false, hidden = false, started = false, timer = null, gesture = false;
 let nextT = 0, step = 0, bar = 0, lastSfx = {};
 
 const BPM = 104, SPS = 60 / BPM / 4; // saniye / 16'lık
@@ -14,6 +14,8 @@ export function bindSettings(fn) { getSettings = fn; }
 
 function ensure() {
   if (ac) return ac;
+  if (!gesture) return null; // AudioContext yalnızca kullanıcı dokunuşundan sonra
+
   try {
     ac = new (window.AudioContext || window.webkitAudioContext)();
     const comp = ac.createDynamicsCompressor();
@@ -38,9 +40,16 @@ export function applySettings() {
 }
 // ilk dokunuşta çağrılır (autoplay politikası)
 export function unlockAudio() {
+  gesture = true;
   if (!ensure()) return;
   if (ac.state === 'suspended') ac.resume();
   started = true; applySettings();
+}
+// İlk kullanıcı hareketinde (dokunma/tık/tuş) bağlamı oluşturur ve dinleyicileri söker.
+export function installUnlock() {
+  const evs = ['pointerup', 'touchend', 'click', 'keydown'];
+  const h = () => { unlockAudio(); if (ac && ac.state === 'running') evs.forEach((e) => removeEventListener(e, h, true)); };
+  evs.forEach((e) => addEventListener(e, h, true));
 }
 export function setHidden(h) {
   hidden = h; if (!ac) return;

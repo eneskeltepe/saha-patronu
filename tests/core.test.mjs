@@ -48,7 +48,7 @@ test('Fiyat kaydırıcısı talebi azaltır ve sınırlandırılır', () => {
 test('15 iki seçenekli olay var, ödeme ve varsayılan çözüm tek sefer çalışır', () => {
   assert.ok(C.eventDefinitions.length>=15); assert.ok(C.eventDefinitions.every(e => e.choices.length===2));
   const s = rich(); s.pendingEvent = { id: 'injury', venueId: s.activeVenueId, expiresAtHour: 10, data: {} };
-  const money = s.money; assert.equal(S.eventView(s).choices.length,2); assert.equal(A.resolveEvent(s,0).ok,true); assert.equal(s.money,money-1300); assert.equal(s.stats.eventsResolved,1);
+  const money = s.money, view = S.eventView(s); assert.equal(view.choices.length,2); assert.equal(A.resolveEvent(s,0).ok,true); assert.equal(s.money,money-view.choices[0].cost); assert.equal(s.stats.eventsResolved,1);
   assert.equal(A.resolveEvent(s,0).ok,false);
   s.pendingEvent = { id: 'injury', venueId: s.activeVenueId, expiresAtHour: 10, data: {} }; tick(s,30,30000); assert.equal(s.stats.eventsResolved,2);
 });
@@ -139,4 +139,154 @@ test('Geçersiz marka anahtarı state ve para birimlerini bozmaz', () => {
 });
 test('İlk 30 saniyede gelir vardır', () => {
   const s = initial(); tick(s,30,30000); assert.ok(s.totalEarned>0);
+});
+
+const offer = (s,id) => { s.pendingEvent = { id, venueId: s.venues[0].id, expiresAtHour: s.time.gameHours+24, data: {} }; };
+const developed = () => {
+  const s = rich(), v = s.venues[0], p = v.pitches[0];
+  s.brandPoints = 10;
+  v.facilities.cafe = 10; v.facilities.rental = 10; v.facilities.camera = 10; v.facilities.social = 10; v.facilities.parking = 10;
+  p.upgrades.turf = 10; p.upgrades.lockers = 10; p.upgrades.lights = 10; p.upgrades.roof = 1;
+  p.price = S.referencePrice(s,v.id,p.id);
+  return s;
+};
+
+test('Her tohumda ilk maç 17:00 başlar, 18:00 tam biter ve ışık yoksa yenisi başlamaz', () => {
+  for (const seed of [0,1,7,42,999,0xffffffff]) {
+    const s = initial(0); s.seed = seed;
+    const p = s.venues[0].pitches[0];
+    assert.equal(S.clock(s).hour,17);
+    const start = tick(s,.1,100);
+    assert.equal(start.filter(e => e.type === 'match_start').length,1);
+    assert.equal(p.match.startHour,17); assert.equal(p.match.endHour,18);
+    tick(s,9.8,9900); assert.equal(s.stats.matches,0); assert.ok(p.match);
+    const end = tick(s,.1,10000);
+    assert.equal(s.stats.matches,1); assert.equal(p.match,null);
+    assert.equal(end.filter(e => e.type === 'match_end').length,1);
+    assert.equal(end.filter(e => e.type === 'match_start').length,0);
+    assert.equal(s.money,C.initial.money+C.initial.price);
+  }
+  const saved = initial(); saved.time.gameHours = 12.5;
+  assert.equal(migrate(saved).time.gameHours,12.5);
+});
+
+test('İlk maç garantisi kapalı, bloke veya meşgul sahayı geçersiz kılmaz', () => {
+  for (const kind of ['closed','blocked','busy']) {
+    const s = initial(), p = s.venues[0].pitches[0];
+    if (kind === 'closed') s.time.gameHours = 18;
+    if (kind === 'blocked') p.blockedUntilHour = 20;
+    if (kind === 'busy') p.match = { startHour: 17, endHour: 20, kind: 'match', revenue: 800 };
+    assert.equal(tick(s,.1,100).filter(e => e.type === 'match_start').length,0,kind);
+  }
+});
+
+test('Olay maliyetleri ve gelirleri şubeye göre ölçeklenir, görünen bedel tam kesilir', () => {
+  const a = rich(), b = developed(); offer(a,'injury'); offer(b,'injury');
+  const low = S.eventView(a).choices[0].cost, high = S.eventView(b).choices[0].cost;
+  assert.ok(high>low);
+  const before = b.money; assert.ok(A.resolveEvent(b,0).ok); assert.equal(b.money,before-high);
+  offer(a,'company'); offer(b,'company');
+  assert.ok(S.eventView(b).choices[0].earned>S.eventView(a).choices[0].earned);
+  const reward = S.eventView(b).choices[0].earned, money = b.money;
+  assert.ok(A.resolveEvent(b,0).ok); assert.equal(b.money,money+reward);
+  offer(b,'injury'); const ownCost = S.eventView(b).choices[0].cost;
+  b.level = 25; A.buyVenue(b,'mega'); b.venues[1].facilities.cafe = 10;
+  assert.equal(S.eventView(b).choices[0].cost,ownCost,'Başka şubenin geliri olayı etkilemez');
+  const short = developed(); offer(short,'injury'); short.money = S.eventView(short).choices[0].cost-1;
+  const snapshot = serialize(short); assert.equal(A.resolveEvent(short,0).ok,false); assert.equal(serialize(short),snapshot);
+});
+
+test('Sunulan olayın gelir tabanı kart açıkken ve kayıt dönüşünde korunur', () => {
+  const s = developed(); s.nextEventHour = 17;
+  tick(s,.1,100);
+  assert.ok(s.pendingEvent); assert.ok(s.pendingEvent.data.economicBase>=C.scaling.hourlyFloor);
+  offer(s,'injury'); s.pendingEvent.data.economicBase = S.incomePerHour(s,s.activeVenueId);
+  const cost = S.eventView(s).choices[0].cost;
+  s.brandPoints += 100; s.venues[0].pitches[0].price *= 2;
+  assert.equal(S.eventView(s).choices[0].cost,cost);
+  assert.equal(S.eventView(deserialize(serialize(s))).choices[0].cost,cost);
+});
+
+test('Bakım, denetim ödülü ve cezası ölçeklidir, bakım kartındaki toplam doğrudur', () => {
+  const a = rich(), b = developed(), [vid,pid] = ids(b);
+  a.venues[0].pitches[0].condition = 40; b.venues[0].pitches[0].condition = 40;
+  assert.ok(S.repairCost(b,vid,pid)>S.repairCost(a,...ids(a)));
+  offer(b,'inspection'); const fee = S.eventView(b).choices[0].cost;
+  const event = C.eventDefinitions.find(e => e.id === 'inspection');
+  const base = Math.max(C.scaling.hourlyFloor,S.incomePerHour(b,vid));
+  const before = b.money;
+  assert.ok(A.resolveEvent(b,0).ok); assert.equal(b.venues[0].pitches[0].condition,100);
+  assert.equal(b.money,before-fee+Math.round(base*event.choices[0].inspectionRewardHours));
+  b.venues[0].pitches[0].condition = 40; offer(b,'inspection');
+  const fine = Math.round(Math.max(C.scaling.hourlyFloor,S.incomePerHour(b,vid))*event.choices[1].inspectionFineHours);
+  const balance = b.money; assert.ok(A.resolveEvent(b,1).ok); assert.equal(b.money,balance-fine);
+  b.money = 1; offer(b,'inspection'); assert.ok(A.resolveEvent(b,1).ok); assert.equal(b.money,0);
+});
+
+test('21 olayın iki seçeneği çözülebilir ve parasız otomatik çözüm negatife düşmez', () => {
+  assert.ok(C.eventDefinitions.length>=21);
+  assert.equal(new Set(C.eventDefinitions.map(e => e.id)).size,C.eventDefinitions.length);
+  for (const e of C.eventDefinitions) for (let index=0;index<2;index++) {
+    const s = developed(); offer(s,e.id);
+    assert.equal(e.choices.length,2);
+    assert.ok(A.resolveEvent(s,index).ok,`${e.id}:${index}`);
+    assert.equal(s.pendingEvent,null); assert.equal(s.stats.eventsResolved,1);
+    assert.ok(Number.isFinite(s.money)&&s.money>=0);
+    const empty = initial(); empty.money = 0; offer(empty,e.id);
+    empty.pendingEvent.expiresAtHour = 17;
+    tick(empty,.1,100);
+    assert.equal(empty.pendingEvent,null,e.id); assert.ok(Number.isFinite(empty.money)&&empty.money>=0);
+  }
+});
+
+test('Turnuva giriş ve ödülleri ölçeklenir, görünen bedel ve ödül uygulanır', () => {
+  for (const t of C.tournaments) {
+    const a = rich(), b = developed(), [v,p] = ids(b);
+    a.venues[0].pitches[0].upgrades.stands = 1; b.venues[0].pitches[0].upgrades.stands = 1;
+    const low = S.tournamentView(a,...ids(a),t.id), high = S.tournamentView(b,v,p,t.id);
+    assert.ok(high.cost>low.cost); assert.ok(high.reward>low.reward);
+    const short = structuredClone(b); short.money = high.cost-1;
+    const snapshot = serialize(short); assert.equal(A.startTournament(short,v,p,t.id).ok,false); assert.equal(serialize(short),snapshot);
+    const money = b.money; assert.ok(A.startTournament(b,v,p,t.id).ok); assert.equal(b.money,money-high.cost);
+    const match = b.venues[0].pitches[0].match; assert.equal(match.revenue,high.reward);
+    b.started = true; b.nextEventHour = 1000;
+    const events = tick(b,t.hours*C.time.secondsPerHour,t.hours*10000);
+    assert.equal(events.filter(e => e.type === 'tournament_end').length,1);
+    assert.equal(b.stats.tournaments,1);
+  }
+});
+
+test('Türkçe metin id kümeleri tanımlarla eşleşir, her müşteri türünün en az beş cümlesi vardır', () => {
+  for (const key of ['missions','achievements','cosmetics']) {
+    assert.deepEqual(Object.keys(C.texts[key]).sort(),C[key].map(x => x.id).sort(),key);
+    for (const t of Object.values(C.texts[key])) { assert.ok(t.name); assert.ok(t.description); }
+  }
+  assert.deepEqual(Object.keys(C.texts.unlocks).sort(),Object.keys(C.unlocks).sort());
+  assert.deepEqual(Object.keys(C.texts.customerLines).sort(),Object.keys(C.customerColors).sort());
+  for (const lines of Object.values(C.texts.customerLines)) { assert.ok(lines.length>=5); assert.equal(new Set(lines).size,lines.length); }
+  assert.ok(C.texts.pitchNames.length>=Math.max(...C.venues.map(v => v.capacity)));
+  assert.equal(initial().venues[0].pitches[0].name,C.texts.pitchNames[0]);
+});
+
+test('Yıpranma arttıkça gelişmiş sahanın bakım maliyeti düşmez', () => {
+  const s = developed(), [v,p] = ids(s), pitch = s.venues[0].pitches[0];
+  s.brandPoints = 100;
+  let previous = 0;
+  for (const condition of [100,80,50,40,30,20,0]) {
+    pitch.condition = condition;
+    const cost = S.repairCost(s,v,p);
+    assert.ok(cost>=previous,`${condition}: ${cost} < ${previous}`);
+    previous = cost;
+  }
+});
+
+test('Marka turnuva ödülünü taban gelirin altında da artırır ve iki kez uygulanmaz', () => {
+  const s = rich(), [v,p] = ids(s); s.venues[0].pitches[0].upgrades.stands = 1;
+  const base = S.tournamentView(s,v,p,'local').reward;
+  s.brandPoints = 1;
+  assert.equal(S.tournamentView(s,v,p,'local').reward,Math.round(base*1.1));
+  const advanced = developed(), [vid,pid] = ids(advanced);
+  const income = S.incomePerHour(advanced,vid), t = C.tournaments[0];
+  assert.ok(income>C.scaling.hourlyFloor*(1+advanced.brandPoints*C.economy.brandIncome));
+  assert.equal(S.tournamentView(advanced,vid,pid,'local').reward,Math.round(income*t.rewardHours));
 });

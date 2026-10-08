@@ -19,7 +19,19 @@ export function pitchCost(s, vid) { const v = getVenue(s, vid); return v ? Math.
 export function upgradeCost(s, vid, pid, key) { const p = getPitch(s, vid, pid); return p && C.upgrades[key] ? Math.round(C.upgrades[key].base * C.economy.growth ** p.upgrades[key] * effectMods(s, vid).discount) : Infinity; }
 export function facilityCost(s, vid, key) { const v = getVenue(s, vid); return v && C.facilities[key] ? Math.round(C.facilities[key].base * C.economy.growth ** v.facilities[key] * effectMods(s, vid).discount) : Infinity; }
 export function staffCost(s, vid, key) { const v = getVenue(s, vid); return v && C.staff[key] ? Math.round(C.staff[key].base * C.economy.growth ** v.staff[key]) : Infinity; }
-export function repairCost(s, vid, pid) { const p = getPitch(s, vid, pid); return p ? Math.ceil(C.economy.repairBase + (C.initial.condition - p.condition) * C.economy.repairPerCondition) : Infinity; }
+export function repairHourlyBase(s, vid) {
+  const v = getVenue(s,vid);
+  if (!v) return Infinity;
+  // Yıpranma talebi düşürür. Bakım tabanı sağlıklı tesisten hesaplanır.
+  const healthyVenue = { ...v, pitches: v.pitches.map(p => ({ ...p, condition: C.initial.condition })) };
+  const healthy = { ...s, venues: [healthyVenue] };
+  return Math.max(C.scaling.hourlyFloor, incomePerHour(healthy,vid) / v.pitches.length);
+}
+export function repairCost(s, vid, pid) {
+  const p = getPitch(s, vid, pid);
+  if (!p) return Infinity;
+  return Math.ceil(repairHourlyBase(s,vid) * (C.scaling.repairBaseHours + (C.initial.condition - p.condition) * C.scaling.repairConditionHours));
+}
 export function referencePrice(s, vid, pid) {
   const v = getVenue(s, vid), p = getPitch(s, vid, pid);
   if (!p) return 0;
@@ -82,5 +94,30 @@ export function isUnlocked(s, feature) { const level = C.unlocks[feature] ?? C.u
 export function levelProgress(s) { return { level: s.level, xp: s.xp, next: C.xpThresholds[s.level + 1] ?? C.xpThresholds.at(-1) }; }
 export function clock(s) { const hour = Math.floor(s.time.gameHours) % C.time.hoursPerDay; return { day: Math.floor(s.time.gameHours / C.time.hoursPerDay) + 1, hour, minute: Math.floor((s.time.gameHours % 1) * C.time.minutesPerHour), isNight: hour >= C.hours.nightStart || hour < C.hours.nightEnd }; }
 export function prestigePreview(s) { return Math.floor(Math.sqrt(safeMoney(s.totalEarned) / C.economy.prestigeDivisor)); }
-export function eventView(s) { const event = C.eventDefinitions.find(e => e.id === s.pendingEvent?.id); return event ? { title: event.title, text: event.text, choices: event.choices.map(c => ({ label: c.label, hint: c.hint, ...(c.cost ? { cost: c.cost } : {}) })) } : null; }
-export const selectors = { pitchCost, upgradeCost, facilityCost, staffCost, repairCost, referencePrice, bookingChance, incomePerHour, salaryPerHour, isUnlocked, levelProgress, clock, prestigePreview, eventView };
+export function economicBase(s, vid) { return Math.max(C.scaling.hourlyFloor, incomePerHour(s,vid)); }
+export function eventChoice(s, c) {
+  const vid = s.pendingEvent?.venueId;
+  const base = Math.max(C.scaling.hourlyFloor, finite(s.pendingEvent?.data?.economicBase, economicBase(s,vid)));
+  const result = { ...c };
+  for (const key of ['cost','earned','inspectionReward','inspectionFine']) {
+    if (Number.isFinite(c[`${key}Hours`])) result[key] = safeMoney(Math.round(c[`${key}Hours`] * base));
+  }
+  return result;
+}
+export function tournamentView(s, vid, pid, id) {
+  const t = C.tournaments.find(t => t.id === id), p = getPitch(s,vid,pid);
+  if (!t || !p) return null;
+  const base = economicBase(s,vid);
+  const brand = 1+s.brandPoints*C.economy.brandIncome;
+  const rewardBase = Math.max(C.scaling.hourlyFloor,incomePerHour(s,vid)/brand)*brand;
+  return { ...t, cost: safeMoney(Math.round(t.costHours * base)), reward: safeMoney(Math.round(t.rewardHours * rewardBase * (1+p.upgrades.stands*t.standsMultiplier))) };
+}
+export function eventView(s) {
+  const event = C.eventDefinitions.find(e => e.id === s.pendingEvent?.id), v = getVenue(s,s.pendingEvent?.venueId);
+  return event && v ? { title: event.title, text: event.text, choices: event.choices.map(raw => {
+    const c = eventChoice(s,raw);
+    const repair = c.inspectionRepair ? v.pitches.reduce((sum,p) => sum + (p.condition < C.initial.condition ? repairCost(s,v.id,p.id) : 0),0) : 0;
+    return { label: c.label, hint: c.hint, ...((c.cost || repair) ? { cost: (c.cost || 0) + repair } : {}), ...(c.earned ? { earned: c.earned } : {}) };
+  }) } : null;
+}
+export const selectors = { pitchCost, upgradeCost, facilityCost, staffCost, repairCost, repairHourlyBase, referencePrice, bookingChance, incomePerHour, salaryPerHour, isUnlocked, levelProgress, clock, prestigePreview, eventView, tournamentView };

@@ -39,7 +39,8 @@ function decide(s,casualMode = false) {
       // Görevli satın alımında gelecekteki bakım masrafı tasarrufu da getiriye dahildir.
       if (c.keeper) {
         const v = s.venues.find(v => v.id === c.venueId);
-        if (v.staff.keeper === 0) gain += v.pitches.reduce((sum,p) => sum + C.economy.wear*C.economy.repairPerCondition*S.bookingChance(s,v.id,p.id,C.hours.eveningStart),0);
+        const repairUnit = S.repairHourlyBase(s,v.id)*C.scaling.repairConditionHours;
+        if (v.staff.keeper === 0) gain += v.pitches.reduce((sum,p) => sum + C.economy.wear*repairUnit*S.bookingChance(s,v.id,p.id,C.hours.eveningStart),0);
       }
       c.score = gain/c.cost;
       if (gain > 0 && (!best || c.score > best.score)) best = c;

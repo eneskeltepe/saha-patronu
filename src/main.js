@@ -4,7 +4,10 @@ import { createRenderer } from './ui/canvas.js';
 import { createHud } from './ui/hud.js';
 import { createPanels } from './ui/panels.js';
 import { levelUpCard, unlockCard, offlineCard, eventModal, settingsModal, confirmModal } from './ui/modals.js';
-import { sfx, vibrate, bindSettings, unlockAudio, setHidden, setNight } from './ui/audio.js';
+import { sfx, vibrate, bindSettings, installUnlock, setHidden, setNight } from './ui/audio.js';
+import { coinBurst } from './ui/fx.js';
+import { createTutorial } from './ui/tutorial.js';
+import { text as T } from './ui/texts.js';
 import { formatMoney, esc } from './ui/format.js';
 import { icon } from './ui/icons.js';
 
@@ -15,7 +18,7 @@ const END_LINES = ['Maç sonrası çaylar bizden.', 'Abi duş sıcak su var mı?
 
 const ACH = { first_pitch: 'İlk ek saha', matches100: '100 maç', five_stars: '5 yıldız', first_tournament: 'İlk turnuva', first_venue: 'İlk şube', first_franchise: 'İlk franchise' };
 const app = { state: null };
-let renderer, hud, panels, resetting = false, lastFlavor = 0;
+let renderer, hud, panels, tutorial, resetting = false, lastFlavor = 0;
 
 // ---------- yardımcılar ----------
 function toast(text, kind = '', ic = '') {
@@ -33,6 +36,7 @@ app.run = (fn, okMsg, snd = 'buy') => {
 };
 app.save = () => { if (!resetting) storage.save(app.state); };
 app.reset = () => { resetting = true; storage.wipe(); location.reload(); };
+app.tutorialReset = () => tutorial.reset();
 app.openEvent = () => eventModal(app);
 app.selectPitch = (id) => renderer.select(id);
 app.resizeCanvasSoon = () => requestAnimationFrame(() => requestAnimationFrame(() => renderer.resize()));
@@ -51,12 +55,12 @@ function handle(events) {
       case 'match_start': if (mine && !seen.has('ws')) { seen.add('ws'); sfx('whistle'); flavor(START_LINES, 0.2); } break;
       case 'match_end':
         if (mine) {
-          if (e.pitchId && e.amount) renderer.money(e.pitchId, st, e.amount);
+          if (e.pitchId && e.amount) { renderer.money(e.pitchId, st, e.amount); const pc = renderer.pitchCenter(e.pitchId); if (pc) coinBurst(pc, Math.min(10, 4 + Math.floor(Math.log10(Math.max(10, e.amount))))); }
           if (!seen.has('we')) { seen.add('we'); sfx('whistle3'); setTimeout(() => sfx('coin'), 900); flavor(END_LINES, 0.2); }
         }
         break;
       case 'level_up': sfx('levelup'); vibrate([40, 30, 60]); levelUpCard(e.payload?.level ?? st.level, e.payload?.gems ?? config.economy.gemsPerLevel); break;
-      case 'unlock': unlockCard(e.payload?.name || e.payload?.label || FEATURES[e.payload?.key || e.payload?.feature] || 'Yeni bir özellik'); break;
+      case 'unlock': { const k = e.payload?.key || e.payload?.feature; unlockCard(e.payload?.name || e.payload?.label || T('unlocks', k, FEATURES[k] || 'Yeni bir özellik')); }; break;
       case 'event_offer': sfx('pop'); eventModal(app); break;
       case 'achievement': toast(`Başarım kazandın: ${ACH[e.payload?.id] || e.payload?.id || ''}`, 'gold', 'trophy'); sfx('levelup'); break;
       case 'mission_done': toast('Görev tamamlandı! Ödülünü Etkinlik sekmesinden al', 'good', 'check'); break;
@@ -78,7 +82,7 @@ function frame(ts) {
   const dt = Math.min((ts - last) / 1000 || 0.016, 0.5); last = ts;
   const now = Date.now(), st = app.state;
   let ev = []; try { ev = tick(st, dt, now) || []; } catch (e) { console.error(e); }
-  if (ev.length) handle(ev);
+  if (ev.length) { handle(ev); tutorial.onEvents(ev); }
   hud(st, dt, now);
   const clock = S.clock(st);
   renderer.draw(st, dt, clock, ts / 1000);
@@ -115,9 +119,17 @@ function boot() {
   renderer.setHandlers({
     onGoal: (p) => { renderer.goalText(p, app.state); sfx('goal'); },
     onKick: () => sfx('kick'),
+    onTap: (h) => {
+      sfx('tap');
+      if (h.type === 'fac') panels.openTab('tesis', { scroll: `[data-fac=${h.key}]` });
+      else if (h.type === 'upg') panels.openTab('saha', { pitch: h.id, scroll: `[data-up=${h.key}]` });
+      else if (h.type === 'lot') panels.openTab('saha', { scroll: '#a-newpitch' });
+      else panels.openTab('saha', { pitch: h.id, scroll: '#a-pitch' });
+    },
   });
   hud = createHud(app);
   panels = createPanels(app);
+  tutorial = createTutorial(app, panels);
   new ResizeObserver(() => renderer.resize()).observe(document.getElementById('stage'));
   renderer.resize();
   panels.render(true);
@@ -126,18 +138,14 @@ function boot() {
     const b = e.target.closest('[data-venue]');
     if (b) { A.setActiveVenue(app.state, b.dataset.venue); sfx('tap'); panels.selPitch = null; panels.render(true); }
   });
-  const cv = document.getElementById('game');
-  cv.addEventListener('pointerdown', (e) => {
-    const r = cv.getBoundingClientRect(), id = renderer.pitchAt(e.clientX - r.left, e.clientY - r.top, app.state);
-    if (id) { panels.selPitch = id; renderer.select(id); panels.render(true); }
-  });
   // ses ilk dokunuşta açılır (autoplay politikası)
-  addEventListener('pointerdown', () => unlockAudio(), { once: true, capture: true });
+  installUnlock();
   setInterval(app.save, 5000);
   if (app.state.pendingEvent) setTimeout(() => eventModal(app), 1500);
   start();
   setTimeout(() => document.getElementById('splash').classList.add('out'), 1100);
   if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('./sw.js').catch(() => {});
+  app.renderer = renderer;
   window.__game = app; // test / hata ayıklama
 }
 try { boot(); } catch (e) { console.error(e); document.querySelector('#splash p').textContent = 'Başlatılamadı: ' + e.message; }

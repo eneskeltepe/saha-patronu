@@ -2,7 +2,8 @@
 export const config = {
   version: 1, seed: 7, maxMoney: Number.MAX_SAFE_INTEGER,
   limits: { stars: 5, gameHours: 1e12 },
-  time: { secondsPerHour: 10, hoursPerDay: 24, startHour: 9, maxTick: 120, msPerSecond: 1000, secondsPerRealHour: 3600, secondsPerDay: 86400, minutesPerHour: 60, epsilon: 1e-8 },
+  time: { secondsPerHour: 10, hoursPerDay: 24, startHour: 17, maxTick: 120, msPerSecond: 1000, secondsPerRealHour: 3600, secondsPerDay: 86400, minutesPerHour: 60, epsilon: 1e-8 },
+  scaling: { hourlyFloor: 800, repairBaseHours: .125, repairConditionHours: .0125 },
   balance: { seed: 7, stepSeconds: 10, decisionSeconds: 60, activeDays: 4, earlySeconds: 10800, casualDays: 12, sessionsPerDay: 3, sessionSeconds: 1200, repairBelow: 55, priceRatios: [.5,.75,1,1.25,1.5,1.75,2], maxPurchases: 100 },
   hours: { open: 9, dayClose: 18, nightClose: 2, morningEnd: 12, eveningStart: 19, subscription: 20, nightStart: 18, nightEnd: 6 },
   customerUnlocks: { womenSocial: 3 },
@@ -39,9 +40,9 @@ export const config = {
   unlocks: { price: 2, cafe: 3, events: 4, staff: 5, rental: 6, parking: 6, roof: 6, tournament: 7, stands: 7, camera: 8, social: 8, district: 10, city: 15, franchise: 20, mega: 25 },
   events: { unlock: 4, gapMin: 3, gapMax: 6, expiry: 24, rainMin: 4, rainMax: 8, weatherChance: .12, weatherInterval: 6 },
   tournaments: [
-    { id: 'local', name: 'Mahalle Kupası', hours: 4, cost: 15000, reward: 30000, stars: .15, gems: 2, unlock: 7, standsMultiplier: .1 },
-    { id: 'company', name: 'Şirketler Ligi', hours: 6, cost: 60000, reward: 110000, stars: .25, gems: 4, unlock: 10, standsMultiplier: .1 },
-    { id: 'stars', name: 'Yıldızlar Turnuvası', hours: 8, cost: 250000, reward: 450000, stars: .4, gems: 6, unlock: 15, standsMultiplier: .1 }
+    { id: 'local', name: 'Mahalle Kupası', hours: 4, cost: 15000, reward: 30000, costHours: 18.75, rewardHours: 37.5, stars: .15, gems: 2, unlock: 7, standsMultiplier: .1 },
+    { id: 'company', name: 'Şirketler Ligi', hours: 6, cost: 60000, reward: 110000, costHours: 75, rewardHours: 137.5, stars: .25, gems: 4, unlock: 10, standsMultiplier: .1 },
+    { id: 'stars', name: 'Yıldızlar Turnuvası', hours: 8, cost: 250000, reward: 450000, costHours: 312.5, rewardHours: 562.5, stars: .4, gems: 6, unlock: 15, standsMultiplier: .1 }
   ],
   missions: [{ id: 'matches', target: 20, reward: 3 }, { id: 'cafe', target: 5000, reward: 3 }, { id: 'events', target: 1, reward: 2 }],
   achievements: [{ id: 'first_pitch', stat: 'pitches', target: 2, reward: 2 }, { id: 'matches100', stat: 'matches', target: 100, reward: 5 }, { id: 'five_stars', stat: 'stars', target: 5, reward: 5 }, { id: 'first_tournament', stat: 'tournaments', target: 1, reward: 3 }, { id: 'first_venue', stat: 'venues', target: 2, reward: 5 }, { id: 'first_franchise', stat: 'prestiges', target: 1, reward: 10 }],
@@ -54,21 +55,65 @@ export const config = {
 
 const choice = (label, hint, effect) => ({ label, hint, ...effect });
 export const eventDefinitions = [
-  { id: 'rain', title: 'Yağmur bastırdı', text: 'Takımlar yağmurdan kaçıyor.', passive: { rain: true, hours: 6 }, choices: [choice('Çadır kirala', '6 saat talebi koru, kira öde.', { cost: 1500, rainProtection: true, hours: 6 }), choice('Bekle', 'Masraf yok, yağmur talebi düşürür.', { stars: -.08 })] },
-  { id: 'derby', title: 'Derbi akşamı', text: 'Herkes büyük maçı izliyor.', passive: { demand: .5, hours: 4 }, choices: [choice('Dev ekran kur', 'Kafeterya 3 kat kazanır, ekran masrafı var.', { cost: 1500, cafe: 3, hours: 4 }), choice('Normal devam et', 'Ekran masrafı yok, müşteri memnuniyeti düşer.', { stars: -.04 })] },
-  { id: 'company', title: 'Şirket turnuvası teklifi', text: 'Şirket üç saatlik saha istiyor.', choices: [choice('Kabul et', 'Saha 3 saat kapanır, ödeme ve itibar gelir.', { earned: 6000, block: 3, stars: .08 }), choice('Reddet', 'Saha açık kalır, şirketi kaybedersin.', { stars: -.03 })] },
-  { id: 'subscription', title: 'Mahalle aboneliği', text: 'Takım her akşam 20:00 için indirim istiyor.', choices: [choice('Abonelik ver', '7 gün garantili slot, fiyat yüzde 30 düşük.', { subscription: .7, hours: 168 }), choice('Serbest fiyatı koru', 'Garanti yok, itibar biraz düşer.', { stars: -.03 })] },
-  { id: 'inspection', title: 'Belediye denetimi', text: 'Ortalama kondisyon yüzde 60 üstündeyse ödül var.', choices: [choice('Hemen bakım yap', 'Bakım ücretini öde, denetim ödülünü al.', { inspectionRepair: true, inspectionThreshold: 60, inspectionReward: 1800 }), choice('Denetimi bekle', 'İyi durumda ödül, kötü durumda ceza.', { inspection: true, inspectionThreshold: 60, inspectionReward: 1000, inspectionFine: 1200 })] },
-  { id: 'injury', title: 'Oyuncu sakatlandı', text: 'Oyuncunun tedaviye ihtiyacı var.', choices: [choice('Tedavi masrafını öde', 'Masraf karşılığında itibar korunur.', { cost: 1300, stars: .05 }), choice('Sorumluluk bizde değil', 'Para harcanmaz, itibar düşer.', { stars: -.3 })] },
-  { id: 'celebrity', title: 'Ünlü futbolcu geldi', text: 'Fotoğraf çekimi için izin istiyor.', choices: [choice('Çekim düzenle', 'Çekim masrafı var, sosyal medyayla 1 gün talep artar.', { cost: 1200, demand: 1.4, requiresSocial: true, hours: 24 }), choice('Özel antrenman sat', 'Hemen ödeme, saha 2 saat kapanır.', { earned: 2200, block: 2 })] },
-  { id: 'power', title: 'Elektrik kesintisi', text: 'Şebeke onarılıyor.', passive: { noLights: true, hours: 4 }, choices: [choice('Jeneratör kirala', '4 saat ışıkları koru, kira öde.', { cost: 1200, generator: true, hours: 4 }), choice('Gündüzü bekle', 'Masraf yok, gece maçları durur.', { stars: -.08 })] },
-  { id: 'theft', title: 'Zemin hırsızlığı', text: 'Çim ruloları zarar gördü.', choices: [choice('Yeni çim al', 'Masraf karşılığında kondisyonu koru.', { cost: 1600, condition: 10 }), choice('Yama ile idare et', 'Masraf yok, kondisyon ve itibar düşer.', { condition: -25, stars: -.15 })] },
-  { id: 'press', title: 'Yerel gazete röportajı', text: 'Muhabir tesisini tanıtmak istiyor.', choices: [choice('Tanıtım günü düzenle', '1 gün talep artar, hazırlık masrafı var.', { cost: 900, demand: 1.2, hours: 24 }), choice('Sahayı fotoğraflara ayır', 'Masraf yok, saha 2 saat kapanır.', { stars: .1, block: 2 })] },
-  { id: 'supplier', title: 'Tedarikçi indirimi', text: 'Toplu sipariş için peşinat gerekiyor.', choices: [choice('Peşinat ver', '12 saat yükseltmeler indirimli, peşinat öde.', { cost: 1500, discount: .75, hours: 12 }), choice('Nakit tut', 'İndirim yok, küçük teslimat masrafı.', { cost: 200 })] },
-  { id: 'fight', title: 'Kavga çıktı', text: 'İki takım arasında tartışma var.', choices: [choice('Ücreti iade et', 'İtibar korunur, iade masrafı var.', { cost: 800, stars: .03 }), choice('Takımları çıkar', 'Saha 1 saat kapanır, itibar düşer.', { block: 1, stars: -.2 })] },
-  { id: 'holiday', title: 'Bayram gecesi', text: 'Mahalle gece turnuvası istiyor.', choices: [choice('Gece programı yap', 'Gece talebi artar, organizasyon masrafı var.', { cost: 1200, nightDemand: 1.5, hours: 24 }), choice('Ailelere sabah ayır', 'Sabah talebi artar, fiyatlar indirimli.', { morningDemand: 1.4, revenue: .85, hours: 24 })] },
-  { id: 'rival', title: 'Yeni rakip saha', text: 'Rakip açılış kampanyası başlattı.', choices: [choice('Reklam ver', '1 gün talep korunur, reklam masrafı var.', { cost: 1400, demand: 1.15, hours: 24 }), choice('Fiyat savaşına gir', 'Talep artar, gelir yüzde 20 düşer.', { demand: 1.3, revenue: .8, hours: 24 })] },
-  { id: 'sponsor', title: 'Sponsor teklifi', text: 'Sponsor tabela ve fiyat tavanı istiyor.', choices: [choice('Sponsorluğu kabul et', 'Sabit gelir gelir, 2 gün fiyat tavanı uygulanır.', { earned: 3500, priceCap: 1, hours: 48 }), choice('Bağımsız kal', 'Fiyat serbest, sponsor hazırlığı masrafı var.', { cost: 150 })] }
+  { id: 'rain', title: "Yağmur var, maç var", text: "WhatsApp grubu geldi ama bulutlar da kadroya girmiş. Çatı yoksa herkes çadır soruyor.", passive: { rain: true, hours: 6 }, choices: [choice("Çadırı kur, maça devam", "Kira öde, 6 saat yağmur talebini koru.", { costHours: 1.875, rainProtection: true, hours: 6 }), choice("Yağmurun dinmesini bekle", "Kasa korunur, ıslanan takımların memnuniyeti azalır.", { stars: -.08 })] },
+  { id: 'derby', title: "Derbi çay ocağına taşındı", text: "Takımlar topu bırakmış, derbinin kadrosunu tartışıyor. Herkes aynı soruyu soruyor: Ekran var mı?", passive: { demand: .5, hours: 4 }, choices: [choice("Dev ekranı kirala", "Ekrana para ayır, 4 saat kafeterya geliri 3 kat olsun.", { costHours: 1.875, cafe: 3, hours: 4 }), choice("Kendi maçımıza bakalım", "Ekran masrafı yok, derbi bekleyenlerin gönlü kalır.", { stars: -.04 })] },
+  { id: 'company', title: "Muhasebe ile satış finalde", text: "Şirket ligi üç saat saha istiyor. Formada unvan yok ama müdür yine kaptan olmuş.", choices: [choice("Şirket maçlarını kabul et", "Toplu ödeme ve itibar kazan, bir sahayı 3 saat ayır.", { earnedHours: 7.5, block: 3, stars: .08 }), choice("Mahallenin saatini koru", "Saha açık kalır, şirketin gözünde biraz puan kaybedersin.", { stars: -.03 })] },
+  { id: 'subscription', title: "WhatsApp grubuna sabit saat", text: "Grup 14 kişi olmuş, yine iki kişi eksik. Yine de her akşam 20:00 için abonelik istiyorlar.", choices: [choice("Gruba abonelik ver", "7 gün garantili 20:00 slotu, saat ücreti yüzde 30 indirimli.", { subscription: .7, hours: 168 }), choice("Saatleri serbest bırak", "Tam fiyatı koru, garanti gelirden ve biraz itibardan vazgeç.", { stars: -.03 })] },
+  { id: 'inspection', title: "Denetçi kramponla gelmedi", text: "Belediye tesisi kontrol ediyor. Ortalama kondisyon yüzde 60 üstündeyse temiz saha ödülü var.", choices: [choice("Önce bakımı tamamla", "Gereken bakım bedelini öde, denetim ödülünü al.", { inspectionRepair: true, inspectionThreshold: 60, inspectionRewardHours: 2.25 }), choice("Olduğu gibi göster", "İyi kondisyonda ödül, düşük kondisyonda kasaya göre ölçekli ceza.", { inspection: true, inspectionThreshold: 60, inspectionRewardHours: 1.25, inspectionFineHours: 1.5 })] },
+  { id: 'injury', title: "Bir bilek, bütün takım", text: "Oyuncu bileğini burktu. Arkadaşları skoru unutup tedavi masrafında destek bekliyor.", choices: [choice("Tedaviye destek ol", "Tedavi masrafını öde, güven ve itibar kazan.", { costHours: 1.625, stars: .05 }), choice("Takım kendi karşılasın", "Kasa korunur, mahallede itibarın ciddi düşer.", { stars: -.3 })] },
+  { id: 'celebrity', title: "Eski yıldız mahalleye geldi", text: "Televizyonda gördükleri futbolcu tesiste. Herkes fotoğraf istiyor, yıldız ise iki saat antrenman.", choices: [choice("Sosyal medyada çekim yap", "Çekime para ayır, sosyal medya varsa 24 saat talep yüzde 40 artsın.", { costHours: 1.5, demand: 1.4, requiresSocial: true, hours: 24 }), choice("Özel antrenmanı sat", "Hemen ödeme al, sahayı 2 saat yıldız için ayır.", { earnedHours: 2.75, block: 2 })] },
+  { id: 'power', title: "Işıklar gitti, itirazlar başladı", text: "Elektrik kesildi. Karanlıkta herkes kendi golünü sayıyor, şebeke onarımı dört saat sürecek.", passive: { noLights: true, hours: 4 }, choices: [choice("Jeneratör kirala", "Kira öde, 4 saat gece aydınlatmasını koru.", { costHours: 1.5, generator: true, hours: 4 }), choice("Gündüzü bekleyelim", "Masraf yok, gece maçları ve biraz itibar kaybolur.", { stars: -.08 })] },
+  { id: 'theft', title: "Çim rulosu ortadan kayboldu", text: "Depodaki çim rulolarına birileri göz dikmiş. Zemin ekleri sahada kendini belli ediyor.", choices: [choice("Yeni çim getir", "Malzeme masrafı öde, kondisyonu 10 puan artır.", { costHours: 2, condition: 10 }), choice("Yamayla idare et", "Masraf yok, kondisyon 25 puan ve itibar düşer.", { condition: -25, stars: -.15 })] },
+  { id: 'press', title: "Mahallenin spor sayfası", text: "Yerel gazete tesisi tanıtmak istiyor. Mahallenin abisi fotoğrafa girmeden önce çayını istiyor.", choices: [choice("Çaylı tanıtım günü yap", "Hazırlığa para ayır, 24 saat talep yüzde 20 artsın.", { costHours: 1.125, demand: 1.2, hours: 24 }), choice("Sahayı fotoğrafa ayır", "Nakit harcama, bir sahayı 2 saat kapatıp itibar kazan.", { stars: .1, block: 2 })] },
+  { id: 'supplier', title: "Topçudan toplu alım teklifi", text: "Tedarikçi top, yelek ve eldivende indirim yapıyor. Peşinat peşin, muhabbet bedava.", choices: [choice("Peşinatı yatır", "Peşinat öde, 12 saat yükseltmeler yüzde 25 indirimli olsun.", { costHours: 1.875, discount: .75, hours: 12 }), choice("Kasayı elde tut", "İndirimden vazgeç, küçük teslimat ücretini öde.", { costHours: 0.25 })] },
+  { id: 'fight', title: "Yenilen öder maçında kavga", text: "Son gol ofsayt mı değil mi tartışması kasaya kadar geldi. Yenilen takım ödeme kararına itiraz ediyor.", choices: [choice("Ücreti iade et, ortamı yatıştır", "İade masrafını karşıla, itibar kazan.", { costHours: 1, stars: .03 }), choice("Takımları dışarı al", "Saha 1 saat kapanır, itibar düşer.", { block: 1, stars: -.2 })] },
+  { id: 'holiday', title: "İftar sonrası bir saat daha", text: "Ramazan gecesi mahalle iftardan sonra maç istiyor. Sahurdan önce rövanş da konuşuluyor.", choices: [choice("Gece programını hazırla", "Organizasyona para ayır, 24 saat gece talebi yüzde 50 artsın.", { costHours: 1.5, nightDemand: 1.5, hours: 24 }), choice("Ailelere sabah saati ayır", "24 saat sabah talebi yüzde 40 artsın, gelir yüzde 15 azalsın.", { morningDemand: 1.4, revenue: .85, hours: 24 })] },
+  { id: 'rival', title: "Yan sokağa rakip saha açıldı", text: "Yeni tesis açılış indirimi yapıyor. Mahalle grubunda fiyat ekran görüntüleri dolaşıyor.", choices: [choice("Kendi sahanı tanıt", "Reklam masrafı öde, 24 saat talep yüzde 15 artsın.", { costHours: 1.75, demand: 1.15, hours: 24 }), choice("İndirimle karşılık ver", "24 saat talep yüzde 30 artsın, gelir yüzde 20 azalsın.", { demand: 1.3, revenue: .8, hours: 24 })] },
+  { id: 'sponsor', title: "Formaya değil, tabelaya sponsor", text: "Yerel esnaf tabela için peşin ödeme öneriyor. Karşılığında iki gün fiyat tavanı istiyor.", choices: [choice("Sponsorla el sıkış", "Peşin gelir al, 48 saat fiyatı referans fiyatla sınırla.", { earnedHours: 4.375, priceCap: 1, hours: 48 }), choice("Bağımsız devam et", "Fiyat serbest kalsın, küçük hazırlık masrafını öde.", { costHours: 0.1875 })] }
 ];
+eventDefinitions.push(
+  { id: 'toast_rush', title: 'Tostçuya uzatmalar çıktı', text: 'İddialı maçın ardından iki takım da kaşarlı tost istiyor. Çaylar da büyük bardakta olacakmış.', choices: [choice('Ek mutfak vardiyası aç', 'Hazırlık masrafı öde, 6 saat kafeterya geliri iki kat olsun.', { costHours: 1.5, cafe: 2, hours: 6 }), choice('Mevcut sırayla devam et', 'Masraf yok, bekleyenlerin itirazı itibarı düşürür.', { stars: -.12 })] },
+  { id: 'sprinkler', title: 'Sulama sistemi kendi liginde', text: 'Sulama başlığı bozuldu. Sağ kanat kupkuru, sol kanat göl kenarı gibi.', choices: [choice('Ustayı hemen çağır', 'Onarım masrafı öde, kondisyonu 10 puan artır.', { costHours: 2, condition: 10 }), choice('Elle sulayıp idare et', 'Para harcama, kondisyon 15 puan ve 8 saat talep yüzde 15 düşer.', { condition: -15, demand: .85, hours: 8 })] },
+  { id: 'school', title: 'Okul takımı saha istiyor', text: 'Beden eğitimi öğretmeni çocuklara ücretsiz antrenman saati istiyor. Veliler de tribüne geleceklermiş.', choices: [choice('Okul takımını misafir et', 'Bir sahayı 2 saat ayır, mahallede itibar kazan.', { block: 2, stars: .22 }), choice('İndirimli ücret öner', 'Ödeme al ama ücretsiz destek bekleyenlerin gönlü kalır.', { earnedHours: 1.2, stars: -.08 })] },
+  { id: 'amateur_fixture', title: 'Amatör lig fikstürü geldi', text: 'Lig temsilcisi dört saatlik toplu rezervasyon istiyor. Bu kez fikstür Excel yerine peçetede.', choices: [choice('Fikstürü sahaya al', 'Toplu ödeme ve itibar kazan, bir saha 4 saat kapanır.', { earnedHours: 7, block: 4, stars: .1 }), choice('Eski takımların saatini tut', 'Düzenli müşteriye alan bırak, lig temsilcisinde itibar kaybet.', { stars: -.06 })] },
+  { id: 'goalkeeper', title: 'Kaleci bulunamadı', text: 'Herkes forvet, kimse kaleye geçmiyor. Kiralık kaleci telefonu bekliyor.', choices: [choice('Kiralık kaleci getir', 'Hizmet bedeli öde, 6 saat talep yüzde 20 artsın.', { costHours: 1, demand: 1.2, hours: 6 }), choice('Takımlar sırayla kaleye geçsin', 'Masraf yok, memnuniyet ve itibar düşer.', { stars: -.1 })] },
+  { id: 'storm_net', title: 'Lodos fileyi götürdü', text: 'Rüzgar kale filesini yırttı. Top artık gol olunca otoparka gidiyor.', choices: [choice('Fileyi ve bağlantıları yenile', 'Onarım masrafı öde, itibar kazan.', { costHours: 2.5, stars: .05 }), choice('Geçici bağla, maçı sürdür', 'Nakit korunur, kondisyon 12 puan ve itibar düşer.', { condition: -12, stars: -.15 })] }
+);
+config.texts = {
+  missions: {
+    matches: { name: '{target} maç oynat', description: 'Bugün sahalarında {target} maç tamamlat.' },
+    cafe: { name: 'Çay ocağının bereketi', description: 'Bugün kafeteryadan {target}₺ kazan.' },
+    events: { name: 'Mahallenin işini çöz', description: 'Bugün {target} olayı karara bağla.' }
+  },
+  achievements: {
+    first_pitch: { name: 'İlk ek saha', description: 'Toplam iki sahaya ulaş.' },
+    matches100: { name: '100 maç oynat', description: 'Sahalarında 100 maç tamamlat.' },
+    five_stars: { name: '5 yıldız ol', description: 'Bir şubeyi 5 yıldız itibara ulaştır.' },
+    first_tournament: { name: 'İlk turnuva', description: 'İlk turnuvanı tamamla.' },
+    first_venue: { name: 'İlk şube', description: 'Başlangıç tesisine ek olarak yeni bir şube aç.' },
+    first_franchise: { name: 'İlk franchise', description: 'Markanı ilk kez franchise ederek yeni bir başlangıç yap.' }
+  },
+  cosmetics: {
+    gold: { name: 'Altın saha çizgileri', description: 'Çizgiler altın sarısı olur.' },
+    blue: { name: 'Mavi forma seti', description: 'Takımlar mavi formayla çıkar.' }
+  },
+  unlocks: {
+    price: 'Yeni özellik açıldı: Fiyat ayarı', cafe: 'Yeni özellik açıldı: Çay ocağı ve kafeterya',
+    events: 'Yeni özellik açıldı: Mahalle olayları', staff: 'Yeni özellik açıldı: Personel',
+    rental: 'Yeni özellik açıldı: Ekipman kiralama', parking: 'Yeni özellik açıldı: Otopark',
+    roof: 'Yeni özellik açıldı: Kapalı çatı', tournament: 'Yeni özellik açıldı: Turnuvalar',
+    stands: 'Yeni özellik açıldı: Tribün', camera: 'Yeni özellik açıldı: Maç kaydı ve kamera',
+    social: 'Yeni özellik açıldı: Sosyal medya', district: 'Yeni özellik açıldı: İlçe Spor Kompleksi (ikinci şube)',
+    city: 'Yeni özellik açıldı: Şehir Arena', franchise: 'Yeni özellik açıldı: Franchise', mega: 'Yeni özellik açıldı: Mega Kompleks'
+  },
+  customerLines: {
+    neighborhood: ["Abi saat 9'a saha var mı?", 'Yenilen öder, ona göre!', 'Krampon kiralık mı?', 'Kaleci bizde, forvet sizde.', 'Rövanş haftaya, aynı saat!', 'Maç sonrası çaylar bizden.', 'Abi duşta sıcak su var mı?'],
+    company: ['Muhasebe yine defans yapıyor.', 'Faturayı şirkete kesebilir miyiz?', 'Müdür kaptan ama penaltıyı biz seçelim.', 'Otoparkta yer var mı?', 'Toplantı bitti, şimdi maç zamanı.'],
+    veteran: ['Önce ısınalım, acelemiz yok.', 'Bizim zamanımızda bu top daha ağırdı.', 'Sabah saati bize iyi geliyor.', 'Maç sonrası çay açık olsun.', 'Pas at evlat, koşu mesafesini koruyalım.'],
+    women: ['Haftaya lig maçı burada mı?', 'Formalar tamam, sıra üç puanda.', 'Maç kaydını takımla paylaşır mısınız?', 'Soyunma odasını ayırabilir miyiz?', 'Bugün presi bırakmıyoruz!'],
+    academy: ['Hocam bugün kaleye ben geçebilir miyim?', 'Annem tribünden izliyor.', 'Antrenmandan sonra su alabilir miyiz?', 'Hocam gol sevincini de çalışalım!', 'Yeni topu ilk ben deneyeyim mi?']
+  },
+  pitchNames: ['1 Nolu Saha', '2 Nolu Saha', '3 Nolu Saha', '4 Nolu Saha', '5 Nolu Saha', '6 Nolu Saha', '7 Nolu Saha', '8 Nolu Saha']
+};
 config.eventDefinitions = eventDefinitions;
 export default config;

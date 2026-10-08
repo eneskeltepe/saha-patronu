@@ -5,7 +5,7 @@ export const finite = (n, fallback = 0) => typeof n === 'number' && Number.isFin
 export const safeMoney = n => clamp(finite(n), 0, C.maxMoney);
 export const dayKey = now => new Date(clamp(finite(now), 0, 8.64e15)).toISOString().slice(0, 10);
 export function makePitch(venue, index, brand = {}) {
-  return { id: `${venue.id}-p${index}`, name: `Saha ${index}`, price: C.initial.price * C.venues.find(v => v.id === venue.typeId).multiplier, condition: C.initial.condition, upgrades: { turf: 0, lights: brand.lights ? 1 : 0, lockers: 0, stands: 0, roof: 0 }, match: null, blockedUntilHour: 0 };
+  return { id: `${venue.id}-p${index}`, name: C.texts.pitchNames[index-1] || `${index} Nolu Saha`, price: C.initial.price * C.venues.find(v => v.id === venue.typeId).multiplier, condition: C.initial.condition, upgrades: { turf: 0, lights: brand.lights ? 1 : 0, lockers: 0, stands: 0, roof: 0 }, match: null, blockedUntilHour: 0 };
 }
 export function makeVenue(type, brand = {}) {
   const venue = { id: type.id, typeId: type.id, name: type.name, stars: C.initial.stars, facilities: Object.fromEntries(Object.keys(C.facilities).map(k => [k, 0])), staff: Object.fromEntries(Object.keys(C.staff).map(k => [k, 0])), pitches: [], staffEfficiency: 1 };

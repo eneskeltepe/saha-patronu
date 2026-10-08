@@ -75,6 +75,7 @@ export function settingsModal(app) {
       el.addEventListener('change', () => app.save());
     },
     buttons: [
+      { label: 'Eğitimi tekrar göster', cls: 'ghost', onClick: () => app.tutorialReset() },
       { label: `${icon('trash')} Kaydı sıfırla`, cls: 'danger', onClick: () => confirmModal({ title: 'Emin misin patron?', text: 'Bütün ilerleme silinecek. Bu geri alınamaz.', ok: 'Evet, sıfırla', danger: true, onOk: () => app.reset() }) },
       { label: 'Kapat', cls: 'ghost' },
     ],

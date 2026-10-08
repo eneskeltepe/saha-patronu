@@ -29,8 +29,11 @@ export function formatDuration(sec) {
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 // "Saha 1" -> "1 Nolu Saha"; çatılı sahaya "Kapalı Saha" (halı saha ağzıyla)
+import { pitchLabel } from './texts.js';
 export function pitchName(p) {
-  const m = /^Saha (\d+)$/.exec(p?.name || '');
+  const cfg = pitchLabel(p); if (cfg) return cfg;
+  const m = /^(?:Saha (\d+)|(\d+) Nolu Saha)$/.exec(p?.name || '');
   if (!m) return p?.name || 'Saha';
-  return (p.upgrades?.roof || 0) > 0 ? `${m[1]} Nolu Kapalı Saha` : `${m[1]} Nolu Saha`;
+  const n = m[1] || m[2];
+  return (p.upgrades?.roof || 0) > 0 ? `${n} Nolu Kapalı Saha` : `${n} Nolu Saha`;
 }

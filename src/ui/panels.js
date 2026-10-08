@@ -2,6 +2,7 @@
 import { selectors as S, actions as A, config } from '../core/index.js';
 import { formatMoney, formatNumber, esc, pitchName } from './format.js';
 import { icon } from './icons.js';
+import { text as T, textDesc as TD } from './texts.js';
 import { showRewardedAd, purchase } from '../monetize.js';
 
 const TABS = [['saha', 'pitch', 'Saha'], ['tesis', 'build', 'Tesis'], ['personel', 'people', 'Personel'], ['etkinlik', 'event', 'Etkinlik'], ['magaza', 'shop', 'Mağaza']];
@@ -60,7 +61,7 @@ export function createPanels(app) {
     h += `<div class="chips">${v.pitches.map((q) => `<button class="${q.id === selPitch ? 'on' : ''}" data-act="selp" data-p="${esc(q.id)}">${esc(pitchName(q))}</button>`).join('')}</div>`;
     if (p) {
       const cond = Math.round(p.condition ?? 100), cc = cond < 40 ? 'bad' : cond < 70 ? 'warn' : '';
-      h += `<div class="card"><div class="row"><div class="grow"><h4>${icon('pitch')} ${esc(pitchName(p))}</h4><p>Kondisyon %${cond}${cond < 50 ? ' · fiyat ve itibar düşüyor' : ''}</p></div>
+      h += `<div class="card" id="a-pitch"><div class="row"><div class="grow"><h4>${icon('pitch')} ${esc(pitchName(p))}</h4><p>Kondisyon %${cond}${cond < 50 ? ' · fiyat ve itibar düşüyor' : ''}</p></div>
         <button class="btn ghost" data-act="repair" data-v="${v.id}" data-p="${p.id}">${icon('wrench')} Bakım · ${formatMoney(S.repairCost(st, v.id, p.id))}</button></div>
         <div class="bar ${cc}" style="margin-top:8px"><i style="width:${cond}%"></i></div>
         ${cond < 60 ? `<div style="margin-top:8px"><button class="btn gem block" data-act="irepair" data-v="${v.id}" data-p="${p.id}">${icon('gem')} Anında bakım (elmas)</button></div>` : ''}</div>`;
@@ -78,13 +79,13 @@ export function createPanels(app) {
       h += `<div class="card"><h4>${icon('hammer')} Saha yükseltmeleri</h4>`;
       for (const k of Object.keys(UPG)) {
         const [n, ic, ef] = UPG[k], lv = p.upgrades?.[k] || 0, max = maxOf('upgrades', k, 10), u = unlocked(k);
-        h += `<div class="up ${u ? '' : 'locked'}"><div class="ib">${icon(ic)}</div><div class="grow"><div class="nm">${n}</div><div class="ef">${ef}</div>${u ? pips(lv, max) : lockMsg(k)}</div>${!u ? '' : lv >= max ? buy('', {}, null) : buy('upg', { v: v.id, p: p.id, k }, S.upgradeCost(st, v.id, p.id, k), lv ? 'Geliştir' : 'Satın al')}</div>`;
+        h += `<div class="up ${u ? '' : 'locked'}" data-up="${k}"><div class="ib">${icon(ic)}</div><div class="grow"><div class="nm">${n}</div><div class="ef">${ef}</div>${u ? pips(lv, max) : lockMsg(k)}</div>${!u ? '' : lv >= max ? buy('', {}, null) : buy('upg', { v: v.id, p: p.id, k }, S.upgradeCost(st, v.id, p.id, k), lv ? 'Geliştir' : 'Satın al')}</div>`;
       }
       h += `</div>`;
     }
     // yeni saha
     const pc = S.pitchCost(st, v.id), full = pc == null || !isFinite(pc);
-    h += `<div class="card row"><div class="ib" style="width:42px;height:42px;border-radius:12px;background:var(--card2);display:grid;place-items:center;color:var(--turf)">${icon('plus')}</div><div class="grow"><h4>Yeni saha</h4><p>${full ? 'Bu şubede saha kalmadı' : 'Yeni saha aç, daha çok maç oynansın'}</p></div>${full ? '' : buy('buyPitch', { v: v.id }, pc, 'Aç')}</div>`;
+    h += `<div class="card row" id="a-newpitch"><div class="ib" style="width:42px;height:42px;border-radius:12px;background:var(--card2);display:grid;place-items:center;color:var(--turf)">${icon('plus')}</div><div class="grow"><h4>Yeni saha</h4><p>${full ? 'Bu şubede saha kalmadı' : 'Yeni saha aç, daha çok maç oynansın'}</p></div>${full ? '' : buy('buyPitch', { v: v.id }, pc, 'Aç')}</div>`;
     // şubeler
     const vt = (config.venues || []).filter((t) => !st.venues.some((x) => x.typeId === t.id));
     if (vt.length) {
@@ -105,7 +106,7 @@ export function createPanels(app) {
     h += `<div class="card">`;
     for (const k of Object.keys(map)) {
       const [n, ic, ef] = map[k], lv = v[field]?.[k] || 0, max = maxOf(kind === 'staff' ? 'staff' : 'facilities', k, 10), u = unlocked(kind === 'staff' ? 'staff' : k), fk = kind === 'staff' ? 'staff' : k;
-      h += `<div class="up ${u ? '' : 'locked'}"><div class="ib">${icon(ic)}</div><div class="grow"><div class="nm">${n}${lv ? ` <span class="tag green">Sv ${lv}</span>` : ''}</div><div class="ef">${ef}</div>${u ? pips(lv, max) : lockMsg(fk)}</div>${u ? (lv >= max ? buy('', {}, null) : buy(act, { v: v.id, k }, cost(st, v.id, k), hire && !lv ? 'İşe al' : lv ? 'Geliştir' : 'Aç')) : ''}</div>`;
+      h += `<div class="up ${u ? '' : 'locked'}" data-fac="${k}"><div class="ib">${icon(ic)}</div><div class="grow"><div class="nm">${n}${lv ? ` <span class="tag green">Sv ${lv}</span>` : ''}</div><div class="ef">${ef}</div>${u ? pips(lv, max) : lockMsg(fk)}</div>${u ? (lv >= max ? buy('', {}, null) : buy(act, { v: v.id, k }, cost(st, v.id, k), hire && !lv ? 'İşe al' : lv ? 'Geliştir' : 'Aç')) : ''}</div>`;
     }
     return h + '</div>';
   }
@@ -122,7 +123,7 @@ export function createPanels(app) {
     h += `<div class="sect">Turnuvalar</div>`;
     const p = v.pitches.find((q) => q.id === selPitch) || v.pitches[0];
     if (!unlocked('tournament')) h += `<div class="card locked"><h4>${icon('trophy')} Turnuvalar</h4>${lockMsg('tournament')}</div>`;
-    else (config.tournaments || []).forEach((t) => {
+    else (config.tournaments || []).map((t) => S.tournamentView(st, v.id, p.id, t.id) || t).forEach((t) => {
       const need = (p?.upgrades?.stands || 0) < 1, ok = st.level >= t.unlock;
       h += `<div class="card ${ok ? '' : 'locked'}"><div class="row"><div class="grow"><h4>${icon('trophy')} ${esc(t.name)}</h4><p>${t.hours} saat · ödül ${formatMoney(t.reward)} · ${icon('gem')} ${t.gems}<br>${esc(pitchName(p))}${need ? ' · tribün gerekli' : ''}</p>${ok ? '' : `<div class="lockmsg">${icon('lock')} Sv ${t.unlock}'te açılır</div>`}</div>${ok ? buy('tourn', { v: v.id, p: p.id, t: t.id }, t.cost, 'Başlat') : ''}</div></div>`;
     });
@@ -130,7 +131,7 @@ export function createPanels(app) {
     h += `<div class="sect">Günlük görevler</div>`;
     for (const m of st.missions?.list || []) {
       const ratio = Math.min(1, m.progress / (m.target || 1)), done = m.progress >= m.target;
-      h += `<div class="card"><div class="row"><div class="grow"><h4>${esc((MISSION[m.id] || (() => m.id))(m))}</h4><p>${formatNumber(Math.min(m.progress, m.target))} / ${formatNumber(m.target)}</p><div class="bar gold" style="margin-top:6px"><i style="width:${ratio * 100}%"></i></div></div>
+      h += `<div class="card"><div class="row"><div class="grow"><h4>${esc(T('missions', m.id, (MISSION[m.id] || (() => m.id))(m), m))}</h4><p>${formatNumber(Math.min(m.progress, m.target))} / ${formatNumber(m.target)}</p><div class="bar gold" style="margin-top:6px"><i style="width:${ratio * 100}%"></i></div></div>
         ${m.claimed ? `<span class="tag green">${icon('check')} Alındı</span>` : `<button class="btn ${done ? 'gem' : 'ghost'}" ${done ? '' : 'disabled'} data-act="mission" data-id="${esc(m.id)}">${icon('gem')} ${formatNumber(m.reward)}</button>`}</div></div>`;
     }
     // giriş serisi
@@ -142,7 +143,7 @@ export function createPanels(app) {
     }).join('')}</div><button class="btn ${ls.claimedToday ? 'ghost' : 'gold'} block" data-act="login" ${ls.claimedToday ? 'disabled' : ''}>${ls.claimedToday ? 'Bugünkü ödül alındı' : 'Günlük ödülü al'}</button></div>`;
     // başarımlar
     const al = config.achievements || [];
-    h += `<div class="sect">Başarımlar</div><div class="card ach">${al.length ? al.map((a) => `<div class="${st.achievements?.[a.id] ? 'on' : ''}">${icon(st.achievements?.[a.id] ? 'star' : 'lock')}<span>${esc(ACH[a.id] || a.id)}</span></div>`).join('') : `<p>${Object.keys(st.achievements || {}).length} başarım kazandın</p>`}</div>`;
+    h += `<div class="sect">Başarımlar</div><div class="card ach">${al.length ? al.map((a) => `<div class="${st.achievements?.[a.id] ? 'on' : ''}">${icon(st.achievements?.[a.id] ? 'star' : 'lock')}<span>${esc(T('achievements', a.id, ACH[a.id] || a.id))}</span></div>`).join('') : `<p>${Object.keys(st.achievements || {}).length} başarım kazandın</p>`}</div>`;
     return h;
   }
 
@@ -159,7 +160,7 @@ export function createPanels(app) {
       <div class="up"><div class="ib">${icon('clock')}</div><div class="grow"><div class="nm">Zaman atlat</div><div class="ef">${config.economy.offlineHours} saatlik kazancı anında al</div></div>${gb('timeskip', R.timeskipGems)}</div>
       <div class="up"><div class="ib">${icon('bolt')}</div><div class="grow"><div class="nm">Hızlandır</div><div class="ef">${Math.round(R.boostSeconds / 60)} dk 2x hız</div></div>${gb('speed2x', R.boostGems)}</div>`;
     (config.cosmetics || []).forEach((c) => {
-      const own = st.cosmetics?.owned?.includes(c.id), [n, d] = COSM[c.id] || [c.id, 'Kozmetik'];
+      const own = st.cosmetics?.owned?.includes(c.id), [n0, d0] = COSM[c.id] || [c.id, 'Kozmetik'], n = T('cosmetics', c.id, n0), d = TD('cosmetics', c.id, d0);
       h += `<div class="up"><div class="ib">${icon('star')}</div><div class="grow"><div class="nm">${esc(n)}</div><div class="ef">${esc(d)}</div></div>${own ? `<span class="tag green">${icon('check')} Sende</span>` : gb('cosmetic:' + c.id, R.cosmeticGems)}</div>`;
     });
     h += `</div><div class="sect">Elmas paketleri</div><div class="card">`;
@@ -218,6 +219,12 @@ export function createPanels(app) {
     if (t === tab && open && !landscape()) open = false; else { tab = t; open = true; }
     last = ''; render(true); app.resizeCanvasSoon();
   }
+  function openTab(t, o = {}) {
+    tab = t; open = true; if (o.pitch) { selPitch = o.pitch; app.selectPitch(o.pitch); }
+    last = ''; render(true); app.resizeCanvasSoon();
+    if (o.scroll) requestAnimationFrame(() => { const el = body.querySelector(o.scroll); if (el) body.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop - 8), behavior: 'smooth' }); else body.scrollTop = 0; });
+    else body.scrollTop = 0;
+  }
   tabsEl.addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) { app.fx('tap'); setTab(b.dataset.tab); } });
 
   // ---------- eylemler ----------
@@ -259,5 +266,5 @@ export function createPanels(app) {
   addEventListener('pointerup', endDrag); addEventListener('pointercancel', endDrag);
   matchMedia('(orientation:landscape)').addEventListener?.('change', () => { last = ''; render(true); app.resizeCanvasSoon(); });
 
-  return { render, setTab, get selPitch() { return selPitch; }, set selPitch(v) { selPitch = v; last = ''; }, isOpen: () => open };
+  return { render, setTab, openTab, currentTab: () => (open ? tab : null), get selPitch() { return selPitch; }, set selPitch(v) { selPitch = v; last = ''; }, isOpen: () => open };
 }
