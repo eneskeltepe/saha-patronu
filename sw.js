@@ -1,4 +1,4 @@
-const VERSION = 'v2';
+const VERSION = 'v3';
 const CACHE = 'saha-patronu-' + VERSION;
 const SHELL = ['./', './index.html', './styles.css', './manifest.webmanifest', './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png',
   './src/main.js', './src/storage.js', './src/monetize.js', './src/ui/format.js', './src/ui/audio.js', './src/ui/canvas.js', './src/ui/icons.js', './src/ui/fx.js', './src/ui/tutorial.js', './src/ui/texts.js',
@@ -14,8 +14,9 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
-  const isPage = req.mode === 'navigate' || new URL(req.url).pathname.endsWith('/index.html');
-  e.respondWith(isPage
-    ? fetch(req).then((r) => { const cp = r.clone(); caches.open(CACHE).then((c) => c.put('./index.html', cp)); return r; }).catch(() => caches.match('./index.html'))
-    : caches.match(req).then((hit) => hit || fetch(req).then((r) => { if (r.ok) { const cp = r.clone(); caches.open(CACHE).then((c) => c.put(req, cp)); } return r; })));
+  // Network-first for everything so every push reaches players without bumping VERSION; cache is the offline fallback.
+  const key = req.mode === 'navigate' ? './index.html' : req;
+  e.respondWith(fetch(req, { cache: 'no-cache' })
+    .then((r) => { if (r.ok) { const cp = r.clone(); caches.open(CACHE).then((c) => c.put(key, cp)); } return r; })
+    .catch(() => caches.match(key).then((hit) => hit || Response.error())));
 });
